@@ -1,0 +1,183 @@
+---
+title: "CreditRisk"
+author: "Nate Talampas"
+date: "2023-11-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+df = read_csv("C:/Users/ntlmp/Desktop/credit_risk_dataset.csv")
+df = as_tibble(df) |>
+  drop_na()
+#summary(df)
+
+# cleaning dataset/removing outliers
+df1 = df[df$person_age < 123 & df$person_emp_length < 123, ]
+summary(df1)
+
+# identifying significant predictors
+log_reg = glm(loan_status ~ ., family = "binomial", data = df)
+summary(log_reg)
+
+# converting categorical values into factor values
+factor_names = c("person_home_ownership", "loan_intent", "loan_grade")
+df1 = df1 |>
+mutate_at(factor_names, factor)
+
+# checking if data is balanced
+table(df1$loan_status)/nrow(df1)
+
+# The data is unbalanced. 78.34% of individuals did not default.
+
+# splitting into training set and test set
+set.seed(123)
+n = nrow(df1)
+prop = 0.5
+train_id = sample(1:n, size = round(n*prop), replace = FALSE)
+test_id = (1:n)[-which(1:n %in% train_id)]
+
+train_set = df1[train_id, ]
+test_set = df1[test_id, ]
+```
+
+# Logistic Model and Prediction
+```{r}
+# fitting logistic model
+logi_reg = glm(loan_status ~ ., family = "binomial", data = train_set)
+summary(logi_reg)
+
+# creating confusion matrix
+logi_pred = ifelse(predict(logi_reg, data = test_set, type = "response") > 0.5, 1, 0)
+tb_log = table(predict_status = logi_pred,
+                true_status = test_set$loan_status)
+tb_log
+
+# computing accuracy
+logi_acc = ((9453 + 500) / (9453 + 2586 + 1779 + 500))*100
+cat("Accuracy:", logi_acc)
+
+# ROC curve; computing AUC
+library(ROCR)
+logi_pred = predict(logi_reg, data = test_set)
+pred = prediction(logi_pred, test_set$loan_status)
+perf = performance(pred, "tpr", "fpr")
+plot(perf, main = "ROC Curve")
+abline(0, 1, lty=3)
+
+auc = as.numeric(performance(pred, "auc")@y.values)
+cat("\nAUC:", auc)
+```
+
+# LDA Model Development and Prediction
+
+$\hat\pi_{default}$ = 0.2164
+$\hat\pi_{nondefault}$ = 0.7836
+
+```{r}
+# building a LDA model
+library(MASS)
+lda_fit<- lda(loan_status ~ ., data = train_set)
+lda_fit
+
+# creating confusion matrix
+lda_pred = predict(lda_fit, test_set)$class
+table(predict_status = lda_pred,
+      true_status = test_set$loan_status)
+
+# computing accuracy
+acc1 = (10609 + 1801) / (10609 + 1257 + 649 + 1801) *100
+cat("Accuracy:", acc1)
+
+# computing 
+library(ROCR)
+lda_pred = predict(lda_fit, test_set)
+pred = prediction(lda_pred$posterior[,2], test_set$loan_status)
+perf = performance(pred, "tpr", "fpr")
+plot(perf, main = "ROC Curve")
+abline(0, 1, lty=3)
+```
+
+# Ridge Regression Method
+```{r}
+library(glmnet)
+xmat = model.matrix(loan_status ~ ., df1)[,-1]
+y = df1$loan_status
+
+for (i in 1:ncol(xmat)){
+  xmat[,i] = scale(xmat[,i], center=FALSE)
+}
+
+mod.ridge = glmnet(xmat, y, alpha=0, family="binomial")
+
+plot(mod.ridge, xvar="lambda", label=TRUE)
+
+coefs.ridge = coef(mod.ridge)
+
+set.seed(123)
+cv.out = cv.glmnet(xmat, y, alpha=0, nfolds=5, family="binomial")
+best.lambda = cv.out$lambda.min
+best.lambda
+
+test.std = model.matrix(loan_status ~ ., test_set)[,-1]
+
+for (i in 1:ncol(test.std)){
+  test.std[,i] = scale(test.std[,i], center=FALSE)
+}
+best.ridge = glmnet(xmat, y, alpha=0, lambda=best.lambda, family="binomial")
+
+# computing accuracy
+ridge.pred = predict(best.ridge, newx = test.std, type="response")
+ridge.pred = ifelse(ridge.pred > 0.5, "Yes", "No")
+cm.ridge = table(pred=ridge.pred, true=test_set$loan_status)
+cm.ridge
+
+ACC = (cm.ridge[1, 1] + cm.ridge[2, 2])/sum(cm.ridge)
+cat("Accuracy:",ACC)
+
+# computing AUC
+ridge.prob = predict(best.ridge, newx=test.std, type="response")
+ridge.pred = prediction(ridge.prob, test_set$loan_status)
+ridge.perf = performance(ridge.pred, "tpr", "fpr")
+plot(ridge.perf, main="ROC Curve")
+abline(0,1,lty=3)
+
+ridge.auc=as.numeric(performance(ridge.pred, "auc")@y.values)
+cat("\nAUC:",ridge.auc)
+```
+
+# Classification Tree Method
+```{r, warning=FALSE}
+library(tree)
+
+train_set$loan_status <- as.factor(train_set$loan_status)
+# building the classification tree
+mod.tree <- tree(loan_status ~ ., data = train_set)
+cv.out = cv.tree(mod.tree)
+cv.out$size[which.min(cv.out$dev)]
+cv.out
+
+plot(mod.tree)
+text(mod.tree, pretty=0, cex=0.5)
+
+tree.pred = predict(mod.tree, test_set, type="class")
+cm.tree = table(pred = tree.pred, true=test_set$loan_status)
+cm.tree
+
+tree_acc = (cm.tree[1,1] + cm.tree[2, 2])/sum(cm.tree)
+cat("Accuracy:", tree_acc)
+
+tree.pred = prediction(as.numeric(tree.pred), as.numeric(test_set$loan_status))
+tree.perf = performance(tree.pred, "tpr", "fpr")
+plot(tree.perf, main="ROC Curve")
+abline(0,1,lty=3)
+
+tree.auc = as.numeric(performance(tree.pred, "auc")@y.values)
+cat("\nAUC:",tree.auc)
+```
+
+
