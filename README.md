@@ -4,21 +4,19 @@ In this project, machine learning algorithms were compared for credit default ri
 
 - **Logistic Regression:**
   - Accuracy: 69.51%
-  - AUC: 0.5103
+  - AUC: 0.5030
 
 - **Linear Discriminant Analysis (LDA):**
-  - Accuracy: 86.71%
+  - Accuracy: 86.69%
   - AUC: 0.8669
 
 - **Ridge Regression:**
-  - Accuracy: 86.63%
-  - AUC: 0.8716
+  - Accuracy: 86.61%
+  - AUC: 0.8689
 
 - **Classification Tree:**
-  - Accuracy: 92.22%
+  - Accuracy: 92.18%
   - AUC: 0.8237
-  - TPR: 99.56%
-  - FPR: 34.83%
 
 **Key Insights:**
 - The Classification Tree had the highest accuracy, but struggled to distinguish positive and negative classes.
