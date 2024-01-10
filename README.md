@@ -1,5 +1,5 @@
 <img src="risk.jpg" width="400" height="200">
-# Credit Default Risk Analysis
+<h1>Credit Default Risk Analysis</h1>
 
 In this project, machine learning algorithms were compared for credit default risk assessment using a dataset of 32,581 observations and 12 variables. Key findings include:
 
