@@ -1,3 +1,4 @@
+<img src="risk.jpg">
 # Credit Default Risk Analysis
 
 In this project, machine learning algorithms were compared for credit default risk assessment using a dataset of 32,581 observations and 12 variables. Key findings include:
